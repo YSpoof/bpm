@@ -7,12 +7,17 @@
     onUnmounted,
     useTemplateRef,
   } from "vue";
-  import { useWakeLock } from "@vueuse/core";
+  import { useWakeLock, useVibrate } from "@vueuse/core";
 
   const { request: requestWakeLock, release: releaseWakeLock } = useWakeLock();
 
+  // Vibration patterns - light vibration for regular taps, stronger for accent taps
+  const { vibrate: vibrateLight } = useVibrate({ pattern: [50] }); // Short, light vibration
+  const { vibrate: vibrateAccent } = useVibrate({ pattern: [100] }); // Stronger pattern for accent
+
   const tickSound = new Audio("/tick.mp3");
   const accentSound = new Audio("/accent.mp3");
+  const enableVibration = shallowRef<boolean>(false);
 
   const currentTab = shallowRef<string>("tapper");
   const tapTimes = ref<number[]>([]);
@@ -34,9 +39,17 @@
     if (tapPosition === 0) {
       accentSound.currentTime = 0;
       accentSound.play();
+      // Stronger vibration for accent tap (first of every 4)
+      if (enableVibration.value) {
+        vibrateAccent();
+      }
     } else {
       tickSound.currentTime = 0;
       tickSound.play();
+      // Light vibration for regular taps
+      if (enableVibration.value) {
+        vibrateLight();
+      }
     }
 
     // Clear any existing timeout
@@ -56,13 +69,6 @@
     resetTimeoutId = setTimeout(() => {
       tapTimes.value = [];
     }, 3000);
-
-    console.log(
-      "Button tapped! Total taps:",
-      tapTimes.value.length,
-      "BPM:",
-      bpm.value
-    );
   };
 
   const calculateBPM = () => {
@@ -95,7 +101,6 @@
 
     tapTimes.value = [];
     bpm.value = 0;
-    console.log("BPM counter reset");
   };
 
   // BPM Listener functions
@@ -128,9 +133,17 @@
       if (beatCount % 4 === 0) {
         accentSound.currentTime = 0;
         accentSound.play();
+        // Stronger vibration for accent beat
+        if (enableVibration.value) {
+          vibrateAccent();
+        }
       } else {
         tickSound.currentTime = 0;
         tickSound.play();
+        // Light vibration for regular beats
+        if (enableVibration.value) {
+          vibrateLight();
+        }
       }
       beatCount++;
     };
@@ -262,6 +275,18 @@
       </button>
     </div>
 
+    <!-- Vibration Toggle -->
+    <div class="my-6">
+      <label class="flex items-center justify-center gap-3 text-gray-600">
+        <span>Vibration:</span>
+        <input
+          type="checkbox"
+          v-model="enableVibration"
+          class="w-5 h-5 text-blue-500 rounded focus:ring-blue-500" />
+        <span class="text-sm">{{ enableVibration ? "On" : "Off" }}</span>
+      </label>
+    </div>
+
     <div class="text-sm text-gray-400 max-w-sm mx-auto">
       <p>
         Tap the button to the beat of the music. BPM will be calculated after 2+
@@ -310,6 +335,18 @@
           class="text-2xl px-8 py-4 bg-green-500 text-white border-none rounded-lg cursor-pointer transition-all">
           {{ isPlaying ? "STOP" : "PLAY" }}
         </button>
+      </div>
+
+      <!-- Vibration Toggle -->
+      <div class="my-6">
+        <label class="flex items-center justify-center gap-3 text-gray-600">
+          <span>Vibration:</span>
+          <input
+            type="checkbox"
+            v-model="enableVibration"
+            class="w-5 h-5 text-blue-500 rounded focus:ring-blue-500" />
+          <span class="text-sm">{{ enableVibration ? "On" : "Off" }}</span>
+        </label>
       </div>
     </div>
 

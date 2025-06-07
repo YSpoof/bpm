@@ -1,5 +1,16 @@
 <script setup lang="ts">
-  import { shallowRef, ref, computed, onMounted, useTemplateRef } from "vue";
+  import {
+    shallowRef,
+    ref,
+    computed,
+    onMounted,
+    onUnmounted,
+    useTemplateRef,
+  } from "vue";
+  import { useWakeLock } from "@vueuse/core";
+
+  const { request: requestWakeLock, release: releaseWakeLock } = useWakeLock();
+
   const tickSound = new Audio("/tick.mp3");
   const accentSound = new Audio("/accent.mp3");
 
@@ -162,29 +173,41 @@
     return display;
   });
 
-  // Focus tap button on mount and add keyboard listener
+  // Handle spacebar listener for tapping and esc to reset
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.code === "Space" && currentTab.value === "tapper") {
+      event.preventDefault(); // Prevent page scroll
+      registerTap();
+    } else if (event.code === "Escape" && currentTab.value === "tapper") {
+      event.preventDefault(); // Prevent page scroll
+      reset();
+    }
+  };
+
   onMounted(() => {
+    // Focus tap button on mount and add keyboard listener
     if (tapButton.value && currentTab.value === "tapper") {
       tapButton.value.focus();
     }
 
-    // Add spacebar listener for tapping and esc to reset
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (event.code === "Space" && currentTab.value === "tapper") {
-        event.preventDefault(); // Prevent page scroll
-        registerTap();
-      } else if (event.code === "Escape" && currentTab.value === "tapper") {
-        event.preventDefault(); // Prevent page scroll
-        reset();
-      }
-    };
+    // Request wake lock on mount
+    requestWakeLock("screen");
 
     document.addEventListener("keydown", handleKeydown);
+  });
 
-    // Cleanup listener on unmount
-    return () => {
-      document.removeEventListener("keydown", handleKeydown);
-    };
+  onUnmounted(() => {
+    // Release wake lock on unmount
+    releaseWakeLock();
+
+    // Stop any playing metronome
+    if (playInterval) {
+      clearInterval(playInterval);
+      playInterval = 0;
+    }
+
+    // remove event listeners
+    document.removeEventListener("keydown", handleKeydown);
   });
 </script>
 

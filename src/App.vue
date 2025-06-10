@@ -15,8 +15,8 @@
   const { vibrate: vibrateLight } = useVibrate({ pattern: [50] }); // Short, light vibration
   const { vibrate: vibrateAccent } = useVibrate({ pattern: [100] }); // Stronger pattern for accent
 
-  const tickSound = new Audio("/tick.mp3");
-  const accentSound = new Audio("/accent.mp3");
+  const tickSound = new Audio("/tick.wav");
+  const accentSound = new Audio("/accent.wav");
   const enableVibration = shallowRef<boolean>(false);
 
   const currentTab = shallowRef<string>("tapper");
@@ -65,10 +65,10 @@
       calculateBPM();
     }
 
-    // Set timeout to reset taps after 3 seconds of inactivity
+    // Set timeout to reset taps after 1.5 seconds of inactivity
     resetTimeoutId = setTimeout(() => {
       tapTimes.value = [];
-    }, 3000);
+    }, 1500);
   };
 
   const calculateBPM = () => {

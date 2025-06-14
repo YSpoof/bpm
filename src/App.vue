@@ -12,8 +12,9 @@
   const { request: requestWakeLock, release: releaseWakeLock } = useWakeLock();
 
   // Vibration patterns - light vibration for regular taps, stronger for accent taps
-  const { vibrate: vibrateLight } = useVibrate({ pattern: [50] }); // Short, light vibration
-  const { vibrate: vibrateAccent } = useVibrate({ pattern: [100] }); // Stronger pattern for accent
+  const { vibrate, isSupported: isVibrationSupported } = useVibrate();
+  const strongVibration = [100];
+  const lightVibration = [50];
 
   const tickSound = new Audio("/tick.wav");
   const accentSound = new Audio("/accent.wav");
@@ -21,7 +22,7 @@
 
   const currentTab = shallowRef<string>("tapper");
   const tapTimes = ref<number[]>([]);
-  const bpm = shallowRef<number>(120); // Changed from shallowRef to ref and set default to 120
+  const bpm = shallowRef<number>(130); // Changed default to 130
   let resetTimeoutId: number = 0;
 
   // Template ref for the tap button
@@ -37,18 +38,16 @@
     // Play accent sound on first tap of every group of 4, tick sound otherwise
     const tapPosition = tapTimes.value.length % 4;
     if (tapPosition === 0) {
-      accentSound.currentTime = 0;
       accentSound.play();
       // Stronger vibration for accent tap (first of every 4)
       if (enableVibration.value) {
-        vibrateAccent();
+        vibrate(strongVibration);
       }
     } else {
-      tickSound.currentTime = 0;
       tickSound.play();
       // Light vibration for regular taps
       if (enableVibration.value) {
-        vibrateLight();
+        vibrate(lightVibration);
       }
     }
 
@@ -131,18 +130,16 @@
     const playBeat = () => {
       // Play accent on first beat of every 4, tick otherwise
       if (beatCount % 4 === 0) {
-        accentSound.currentTime = 0;
         accentSound.play();
         // Stronger vibration for accent beat
         if (enableVibration.value) {
-          vibrateAccent();
+          vibrate(strongVibration);
         }
       } else {
-        tickSound.currentTime = 0;
         tickSound.play();
         // Light vibration for regular beats
         if (enableVibration.value) {
-          vibrateLight();
+          vibrate(lightVibration);
         }
       }
       beatCount++;
@@ -276,7 +273,9 @@
     </div>
 
     <!-- Vibration Toggle -->
-    <div class="my-6">
+    <div
+      v-if="isVibrationSupported"
+      class="my-6">
       <label class="flex items-center justify-center gap-3 text-gray-600">
         <span>Vibration:</span>
         <input

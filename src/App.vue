@@ -29,7 +29,7 @@
   const tapButton = useTemplateRef("tapButton");
 
   // BPM Listener state
-  const isPlaying = ref<boolean>(false);
+  const isPlaying = shallowRef<boolean>(false);
   let playInterval: number = 0;
 
   const registerTap = () => {
@@ -38,12 +38,14 @@
     // Play accent sound on first tap of every group of 4, tick sound otherwise
     const tapPosition = tapTimes.value.length % 4;
     if (tapPosition === 0) {
+      accentSound.currentTime = 0;
       accentSound.play();
       // Stronger vibration for accent tap (first of every 4)
       if (enableVibration.value) {
         vibrate(strongVibration);
       }
     } else {
+      tickSound.currentTime = 0;
       tickSound.play();
       // Light vibration for regular taps
       if (enableVibration.value) {
@@ -300,30 +302,17 @@
     v-else-if="currentTab === 'listener'">
     <h1>Listener</h1>
     <div class="my-8">
-      <p class="text-5xl font-bold my-4">{{ bpm }} BPM</p>
+      <div class="flex items-center justify-center gap-2">
+        <input
+          type="number"
+          v-model="bpm"
+          :disabled="isPlaying"
+          class="text-4xl font-bold text-center border-2 border-gray-300 rounded-lg p-2 w-36 focus:border-blue-500 focus:outline-none" />
+        <span class="text-5xl font-bold text-gray-700">BPM</span>
+      </div>
     </div>
 
     <div class="my-8">
-      <div class="my-8 flex flex-col items-center">
-        <label
-          for="bpm-slider"
-          class="text-xl mb-4 text-gray-700"
-          >BPM:</label
-        >
-        <input
-          id="bpm-slider"
-          type="range"
-          min="60"
-          max="200"
-          v-model="bpm"
-          class="range-slider"
-          :disabled="isPlaying" />
-        <div class="flex justify-between w-75 mt-2 text-sm text-gray-500">
-          <span>60</span>
-          <span>200</span>
-        </div>
-      </div>
-
       <div class="my-8">
         <button
           @click="toggleMetronome"

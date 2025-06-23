@@ -29,7 +29,7 @@
   const tapButton = useTemplateRef("tapButton");
 
   // BPM Listener state
-  const isPlaying = ref<boolean>(false);
+  const isPlaying = shallowRef<boolean>(false);
   let playInterval: number = 0;
 
   const registerTap = () => {
@@ -38,12 +38,14 @@
     // Play accent sound on first tap of every group of 4, tick sound otherwise
     const tapPosition = tapTimes.value.length % 4;
     if (tapPosition === 0) {
+      accentSound.currentTime = 0;
       accentSound.play();
       // Stronger vibration for accent tap (first of every 4)
       if (enableVibration.value) {
         vibrate(strongVibration);
       }
     } else {
+      tickSound.currentTime = 0;
       tickSound.play();
       // Light vibration for regular taps
       if (enableVibration.value) {
@@ -164,23 +166,26 @@
 
   const tapDisplay = computed(() => {
     const totalTaps = tapTimes.value.length;
-    const groups = Math.floor(totalTaps / 4);
-    const remainder = totalTaps % 4;
+    if (totalTaps === 0) return "";
 
-    let display = "";
+    // Reset display after 8 taps (2 complete groups of 4)
+    const displayTaps = totalTaps % 8 || (totalTaps > 0 ? 8 : 0);
 
-    // Add complete groups of 4 asterisks with spaces
-    for (let i = 0; i < groups; i++) {
-      display += "****";
-      if (i < groups - 1 || remainder > 0) {
-        display += " ";
+    // Create fixed-width groups to prevent jumping
+    const result = [];
+    let currentGroup = "";
+
+    for (let i = 0; i < displayTaps; i++) {
+      currentGroup += "*";
+
+      // Complete group of 4 or end of taps
+      if ((i + 1) % 4 === 0 || i === displayTaps - 1) {
+        result.push(currentGroup);
+        currentGroup = "";
       }
     }
 
-    // Add remaining asterisks
-    display += "*".repeat(remainder);
-
-    return display;
+    return result.join(" ");
   });
 
   // Handle spacebar listener for tapping and esc to reset
@@ -222,143 +227,129 @@
 </script>
 
 <template>
-  <!-- Tab Navigation -->
-  <div class="flex justify-center mb-4 border-b-gray-300">
-    <button
-      @click="switchTab('tapper')"
-      :class="{
-        'text-blue-500 border-b-blue-500': currentTab === 'tapper',
-      }"
-      class="text-lg px-8 py-4 bg-transparent text-gray-500 border-none border-b-transparent cursor-pointer transition-all hover:text-blue-500">
-      Tapper
-    </button>
-    <button
-      @click="switchTab('listener')"
-      :class="{
-        'text-blue-500 border-b-blue-500': currentTab === 'listener',
-      }"
-      class="text-lg px-8 py-4 bg-transparent text-gray-500 border-none border-b-transparent cursor-pointer transition-all hover:text-blue-500">
-      Listener
-    </button>
-  </div>
-
-  <!-- BPM Tapper Tab -->
-  <div
-    class="text-center p-4 font-sans"
-    v-if="currentTab === 'tapper'">
-    <h1>Tapper</h1>
-    <div class="my-8">
-      <p class="text-5xl font-bold my-4">{{ bpm }} BPM</p>
-      <p class="text-xl text-gray-500">Taps: {{ tapCount }}</p>
+  <div class="min-h-screen bg-gray-50 p-8">
+    <div class="max-w-md mx-auto">
+      <!-- Tab Navigation -->
       <div
-        class="text-3xl my-4 h-20 tracking-widest flex items-center justify-center overflow-hidden">
-        {{ tapDisplay }}
-      </div>
-    </div>
-
-    <div class="my-8">
-      <button
-        ref="tapButton"
-        @click="registerTap"
-        @keydown.esc="reset"
-        class="text-2xl px-8 py-4 bg-blue-500 text-white border-none rounded-lg cursor-pointer mr-4">
-        TAP ME
-      </button>
-
-      <button
-        @click="reset"
-        class="text-base px-6 py-3 bg-gray-500 text-white border-none rounded-lg cursor-pointer">
-        Reset
-      </button>
-    </div>
-
-    <!-- Vibration Toggle -->
-    <div
-      v-if="isVibrationSupported"
-      class="my-6">
-      <label class="flex items-center justify-center gap-3 text-gray-600">
-        <span>Vibration:</span>
-        <input
-          type="checkbox"
-          v-model="enableVibration"
-          class="w-5 h-5 text-blue-500 rounded focus:ring-blue-500" />
-        <span class="text-sm">{{ enableVibration ? "On" : "Off" }}</span>
-      </label>
-    </div>
-
-    <div class="text-sm text-gray-400 max-w-sm mx-auto">
-      <p>
-        Tap the button to the beat of the music. BPM will be calculated after 2+
-        taps using the last 4 taps for accuracy.
-      </p>
-    </div>
-  </div>
-
-  <!-- BPM Listener Tab -->
-  <div
-    class="text-center p-8 font-sans"
-    v-else-if="currentTab === 'listener'">
-    <h1>Listener</h1>
-    <div class="my-8">
-      <p class="text-5xl font-bold my-4">{{ bpm }} BPM</p>
-    </div>
-
-    <div class="my-8">
-      <div class="my-8 flex flex-col items-center">
-        <label
-          for="bpm-slider"
-          class="text-xl mb-4 text-gray-700"
-          >BPM:</label
-        >
-        <input
-          id="bpm-slider"
-          type="range"
-          min="60"
-          max="200"
-          v-model="bpm"
-          class="range-slider"
-          :disabled="isPlaying" />
-        <div class="flex justify-between w-75 mt-2 text-sm text-gray-500">
-          <span>60</span>
-          <span>200</span>
-        </div>
-      </div>
-
-      <div class="my-8">
+        class="flex bg-white rounded-xl p-1 mb-8 shadow-sm border border-gray-200">
         <button
-          @click="toggleMetronome"
-          :class="{
-            'bg-red-500 hover:bg-red-600': isPlaying,
-            'hover:bg-green-600': !isPlaying,
-          }"
-          class="text-2xl px-8 py-4 bg-green-500 text-white border-none rounded-lg cursor-pointer transition-all">
-          {{ isPlaying ? "STOP" : "PLAY" }}
+          @click="switchTab('tapper')"
+          :class="
+            currentTab === 'tapper'
+              ? 'bg-blue-500 text-white shadow-sm'
+              : 'text-gray-600 hover:text-blue-500'
+          "
+          class="flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-200">
+          Tap Mode
+        </button>
+        <button
+          @click="switchTab('listener')"
+          :class="
+            currentTab === 'listener'
+              ? 'bg-blue-500 text-white shadow-sm'
+              : 'text-gray-600 hover:text-blue-500'
+          "
+          class="flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-200">
+          Metronome
         </button>
       </div>
 
-      <!-- Vibration Toggle -->
-      <div class="my-6">
-        <label class="flex items-center justify-center gap-3 text-gray-600">
-          <span>Vibration:</span>
-          <input
-            type="checkbox"
-            v-model="enableVibration"
-            class="w-5 h-5 text-blue-500 rounded focus:ring-blue-500" />
-          <span class="text-sm">{{ enableVibration ? "On" : "Off" }}</span>
-        </label>
+      <!-- BPM Tapper Tab -->
+      <div
+        v-if="currentTab === 'tapper'"
+        class="text-center space-y-6">
+        <!-- BPM Display -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <div class="text-7xl font-black text-gray-900 mb-2">{{ bpm }}</div>
+          <div class="text-xl text-gray-600 mb-4">BPM</div>
+          <div class="text-sm text-gray-500 mb-4">{{ tapCount }} taps</div>
+          <div
+            class="bg-gray-100 rounded-xl pt-4 flex items-center justify-center">
+            <div
+              class="text-2xl font-mono text-blue-600 tracking-widest break-all">
+              {{ tapDisplay || "\u00A0" }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Tap Button -->
+        <button
+          ref="tapButton"
+          @click="registerTap"
+          class="w-40 h-40 mx-auto bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-2xl rounded-full shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 mr-1">
+          TAP
+        </button>
+
+        <!-- Reset Button -->
+        <button
+          @click="reset"
+          class="ml-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-8 py-3 rounded-xl transition-colors duration-200">
+          Reset
+        </button>
+
+        <!-- Vibration Toggle -->
+        <div
+          v-if="isVibrationSupported"
+          class="flex items-center justify-center gap-4">
+          <span class="text-gray-600 font-medium">Vibration</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="enableVibration"
+              class="sr-only peer" />
+            <div
+              class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- BPM Listener Tab -->
+      <div
+        v-else-if="currentTab === 'listener'"
+        class="text-center space-y-6">
+        <!-- BPM Input -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <label class="block text-lg font-semibold text-gray-700 mb-6"
+            >Set Tempo</label
+          >
+          <div class="flex items-center justify-center gap-4">
+            <input
+              type="number"
+              v-model="bpm"
+              :disabled="isPlaying"
+              min="40"
+              max="200"
+              class="text-5xl font-bold text-center border-2 border-gray-300 rounded-xl p-4 w-40 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-200 transition-all duration-200 disabled:bg-gray-100 disabled:text-gray-500" />
+            <span class="text-2xl font-semibold text-gray-600">BPM</span>
+          </div>
+        </div>
+
+        <!-- Metronome Button -->
+        <button
+          @click="toggleMetronome"
+          :disabled="bpm <= 0"
+          :class="
+            isPlaying
+              ? 'bg-gradient-to-b from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-300'
+              : 'bg-gradient-to-b from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-green-300'
+          "
+          class="w-40 h-40 mx-auto text-white font-bold text-2xl rounded-full shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 focus:outline-none focus:ring-4 disabled:opacity-50 disabled:active:scale-100">
+          {{ isPlaying ? "STOP" : "START" }}
+        </button>
+
+        <!-- Vibration Toggle -->
+        <div class="flex items-center justify-center gap-4">
+          <span class="text-gray-600 font-medium">Vibration</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="enableVibration"
+              class="sr-only peer" />
+            <div
+              class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
       </div>
     </div>
-
-    <div class="text-sm text-gray-400 max-w-sm mx-auto">
-      <p>
-        Adjust the BPM slider and click play to listen to the metronome at your
-        desired tempo.
-      </p>
-    </div>
-  </div>
-
-  <!-- Fallback for other tabs -->
-  <div v-else>
-    <p>Other tabs will be implemented later.</p>
   </div>
 </template>
